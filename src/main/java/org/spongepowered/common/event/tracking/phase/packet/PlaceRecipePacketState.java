@@ -96,11 +96,11 @@ public class PlaceRecipePacketState extends BasicInventoryPacketState {
             Transaction<ItemStackSnapshot> cursorTransaction = new Transaction<>(cursor, cursor);
             ClickInventoryEvent event;
             if (shift) {
-                event = SpongeEventFactory.createClickInventoryEventShiftPrimary(frame.getCurrentCause(),
-                        cursorTransaction, ((Container) player.openContainer), transactions);
+                event = SpongeEventFactory.createClickInventoryEventRecipeAll(frame.getCurrentCause(),
+                        cursorTransaction, (CraftingRecipe)recipe, ((Container) player.openContainer), transactions);
             } else {
-                event = SpongeEventFactory.createClickInventoryEventPrimary(frame.getCurrentCause(),
-                        cursorTransaction, ((Container) player.openContainer), transactions);
+                event = SpongeEventFactory.createClickInventoryEventRecipeSingle(frame.getCurrentCause(),
+                        cursorTransaction, (CraftingRecipe)recipe, ((Container) player.openContainer), transactions);
             }
             SpongeImpl.postEvent(event);
             if (event.isCancelled() || !event.getCursorTransaction().isValid()) {
