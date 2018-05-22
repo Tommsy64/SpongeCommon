@@ -39,7 +39,6 @@ import net.minecraft.entity.ai.attributes.AttributeMap;
 import net.minecraft.entity.ai.attributes.IAttributeInstance;
 import net.minecraft.entity.ai.attributes.ModifiableAttributeInstance;
 import net.minecraft.entity.ai.attributes.RangedAttribute;
-import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.passive.EntityHorse;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -107,9 +106,6 @@ import org.spongepowered.api.item.inventory.Carrier;
 import org.spongepowered.api.item.inventory.Container;
 import org.spongepowered.api.item.inventory.Inventory;
 import org.spongepowered.api.item.inventory.ItemStackSnapshot;
-import org.spongepowered.api.item.inventory.entity.Hotbar;
-import org.spongepowered.api.item.inventory.property.SlotIndex;
-import org.spongepowered.api.item.inventory.transaction.SlotTransaction;
 import org.spongepowered.api.item.inventory.type.CarriedInventory;
 import org.spongepowered.api.network.PlayerConnection;
 import org.spongepowered.api.profile.GameProfile;
@@ -128,6 +124,7 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -264,16 +261,17 @@ public abstract class MixinEntityPlayerMP extends MixinEntityPlayer implements P
         }
     }
 
-
+    @Override
+    @Unique
+    public void onDeath(DamageSource cause) {}
+    
     /**
      * @author blood - May 12th, 2016
      * @author gabizou - June 3rd, 2016
      *
      * @reason SpongeForge requires an overwrite so we do it here instead. This handles player death events.
      */
-    @Override
-    @Overwrite
-    public void onDeath(DamageSource cause) {
+    public void localOnDeath(DamageSource cause) {
         if (!SpongeCommonEventFactory.callDestructEntityEventDeath((EntityPlayerMP) (Object) this, cause)) {
             return;
         }
@@ -758,7 +756,7 @@ public abstract class MixinEntityPlayerMP extends MixinEntityPlayer implements P
         return this.pendingGameType;
     }
 
-    @Redirect(method = "onDeath", at = @At(value = "INVOKE",
+    @Redirect(method = "localOnDeath", at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/GameRules;getBoolean(Ljava/lang/String;)Z", ordinal = 0))
     public boolean onGetGameRules(GameRules gameRules, String gameRule) {
         return false; // Suppress death messages since this is handled together with the event calling
@@ -855,29 +853,6 @@ public abstract class MixinEntityPlayerMP extends MixinEntityPlayer implements P
         this.connection.sendPacket(packet);
     }
 
-    /**
-     * @author gabizou, April 7th, 2016
-     *
-     * Technically an overwrite of {@link EntityPlayer#dropItem(boolean)}
-     * @param dropAll
-     * @return
-     */
-    @Override
-    @Nullable
-    public EntityItem dropItem(boolean dropAll) {
-        final ItemStack currentItem = this.inventory.getCurrentItem();
-        if (currentItem == null) {
-            return null;
-        }
-
-        // Add SlotTransaction to PlayerContainer
-        org.spongepowered.api.item.inventory.Slot slot = ((Inventory) this.inventoryContainer).query(Hotbar.class).query(SlotIndex.of(this.inventory.currentItem));
-        ItemStack itemToDrop = this.inventory.decrStackSize(this.inventory.currentItem, dropAll && currentItem != null ? currentItem.stackSize : 1);
-        ((IMixinContainer) this.inventoryContainer).getCapturedTransactions().add(new SlotTransaction(slot, ItemStackUtil.snapshotOf(currentItem), ItemStackUtil.snapshotOf(this.inventory.getCurrentItem())));
-
-        return this.dropItem(itemToDrop, false, true);
-    }
-
     @Override
     public void stopActiveHand() {
         // Our using item state is probably desynced from the client (e.g. from the initial air interaction of a bow being cancelled).
@@ -944,7 +919,7 @@ public abstract class MixinEntityPlayerMP extends MixinEntityPlayer implements P
         return event;
     }
 
-    @Redirect(method = "onUpdateEntity",
+    @Redirect(method = "localOnUpdateEntity",
             at = @At(
                     value = "INVOKE",
                     target = "Lnet/minecraft/entity/player/EntityPlayerMP;getHealth()F"
@@ -964,7 +939,7 @@ public abstract class MixinEntityPlayerMP extends MixinEntityPlayer implements P
         return getInternalScaledHealth();
     }
 
-    @Inject(method = "onUpdateEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/EntityPlayerMP;getTotalArmorValue()I", ordinal = 0))
+    @Inject(method = "localOnUpdateEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/entity/player/EntityPlayerMP;getTotalArmorValue()I", ordinal = 0))
     private void updateHealthPriorToArmor(CallbackInfo ci) {
         refreshScaledHealth();
     }

@@ -75,6 +75,10 @@ import org.spongepowered.api.event.cause.entity.damage.DamageTypes;
 import org.spongepowered.api.event.cause.entity.damage.source.EntityDamageSource;
 import org.spongepowered.api.event.entity.AttackEntityEvent;
 import org.spongepowered.api.event.entity.DamageEntityEvent;
+import org.spongepowered.api.item.inventory.Inventory;
+import org.spongepowered.api.item.inventory.entity.Hotbar;
+import org.spongepowered.api.item.inventory.property.SlotIndex;
+import org.spongepowered.api.item.inventory.transaction.SlotTransaction;
 import org.spongepowered.api.util.Tuple;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -84,13 +88,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import org.spongepowered.common.SpongeImpl;
 import org.spongepowered.common.SpongeImplHooks;
 import org.spongepowered.common.data.util.NbtDataUtil;
 import org.spongepowered.common.data.manipulator.mutable.entity.SpongeHealthData;
 import org.spongepowered.common.entity.EntityUtil;
 import org.spongepowered.common.event.damage.DamageEventHandler;
+import org.spongepowered.common.interfaces.IMixinContainer;
 import org.spongepowered.common.interfaces.ITargetedLocation;
 import org.spongepowered.common.interfaces.entity.IMixinEntity;
 import org.spongepowered.common.interfaces.entity.player.IMixinEntityPlayer;
@@ -145,7 +149,6 @@ public abstract class MixinEntityPlayer extends MixinEntityLivingBase implements
     @Shadow public abstract void spawnSweepParticles();
     @Shadow public abstract void takeStat(StatBase stat);
     @Shadow public abstract void wakeUpPlayer(boolean immediately, boolean updateWorldFlag, boolean setSpawn);
-    @Shadow public abstract EntityItem dropItem(boolean dropAll);
     @Shadow public abstract FoodStats getFoodStats();
     @Shadow public abstract GameProfile getGameProfile();
     @Shadow public abstract Scoreboard getWorldScoreboard();
@@ -320,6 +323,29 @@ public abstract class MixinEntityPlayer extends MixinEntityLivingBase implements
     @Nullable
     public EntityItem dropItem(@Nullable ItemStack itemStackIn, boolean unused) {
         return this.dropItem(itemStackIn, false, false);
+    }
+    
+    /**
+     * @author gabizou, April 7th, 2016
+     *
+     * Technically an overwrite of {@link EntityPlayer#dropItem(boolean)}
+     * @param dropAll
+     * @return
+     */
+    @Nullable
+    @Overwrite
+    public EntityItem dropItem(boolean dropAll) {
+        final ItemStack currentItem = this.inventory.getCurrentItem();
+        if (currentItem == null) {
+            return null;
+        }
+
+        // Add SlotTransaction to PlayerContainer
+        org.spongepowered.api.item.inventory.Slot slot = ((Inventory) this.inventoryContainer).query(Hotbar.class).query(SlotIndex.of(this.inventory.currentItem));
+        ItemStack itemToDrop = this.inventory.decrStackSize(this.inventory.currentItem, dropAll && currentItem != null ? currentItem.stackSize : 1);
+        ((IMixinContainer) this.inventoryContainer).getCapturedTransactions().add(new SlotTransaction(slot, ItemStackUtil.snapshotOf(currentItem), ItemStackUtil.snapshotOf(this.inventory.getCurrentItem())));
+
+        return this.dropItem(itemToDrop, false, true);
     }
 
     /**

@@ -74,8 +74,8 @@ public abstract class MixinEntityFishHook extends MixinEntity implements FishHoo
 
     @Nullable
     public ProjectileSource projectileSource;
-    private double damageAmount;
-    private net.minecraft.item.ItemStack fishingRod;
+    // private double damageAmount;
+    // private net.minecraft.item.ItemStack fishingRod;
 
     @Override
     public ProjectileSource getShooter() {
